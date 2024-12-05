@@ -64,7 +64,7 @@ foreach (var update in updates)
             if (TryAddFromLeft(x)) continue;
             if (TryAddFromRight(x)) continue;
 
-            Console.WriteLine($"Ambiguous: {x}");
+            Console.WriteLine($"Ambiguous: {x}"); // TODO: could this lead to infinite loop? maybe transitive rules or something would not get caught here
             remaining.Enqueue(x);
         }
 
