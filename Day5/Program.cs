@@ -61,11 +61,19 @@ foreach (var update in updates)
             // if ambiguous, requeue x to remaining and try another value
             Console.WriteLine($"Trying to add {x} to [{string.Join(',', corrected)}]");
 
+            // these attempt to lookup a rule using exactly X and current[*] as the left/right side of the rule
+            // if it can't find a rule, it will requeue X and try the next value.
+            // so this assumes that eventually corrected will contain more elements, and eventually for every X, we will find
+            // a rule between X and some corrected[*].
             if (TryAddFromLeft(x)) continue;
             if (TryAddFromRight(x)) continue;
 
-            Console.WriteLine($"Ambiguous: {x}"); // TODO: could this lead to infinite loop? maybe transitive rules or something would not get caught here
-            remaining.Enqueue(x);
+            Console.WriteLine($"Ambiguous: {x}");
+            remaining.Enqueue(x); // try again once more elements have been added to corrected
+
+            // if there is no rule between X and any other elements of corrected, this will infinitely loop, as X continuously gets requeued.
+            // for the given input.txt, this assumption turns out to be safe.
+            // otherwise, we could avoid this by massaging the ruleset to expand on transitive rules and add to the ruleset.
         }
 
         Console.WriteLine($"Corrected: [{string.Join(',', corrected)}]\n----");
