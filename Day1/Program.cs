@@ -17,13 +17,17 @@ internal class Program
 
         listA.Sort();
         listB.Sort();
+        var bCounts = new Dictionary<int, int>(listB.CountBy(x => x));
 
         var totalDistance = 0;
+        var similarityScore = 0;
         for (var i = 0; i < listA.Count; i++)
         {
             totalDistance += Math.Abs(listA[i] - listB[i]);
+            similarityScore += listA[i] * bCounts.GetValueOrDefault(listA[i], 0);
         }
 
         Console.WriteLine($"Total distance: {totalDistance}");
+        Console.WriteLine($"Similarity score: {similarityScore}");
     }
 }
