@@ -112,6 +112,7 @@ static void Part2()
     var rows = original.Length;
     var cols = original[0].Length;
 
+    // find all the A's and then check its diagonal neighbors
     var count = 0;
     for (var c = 1; c < cols - 1; c++)
     {
@@ -120,16 +121,16 @@ static void Part2()
             if (original[r][c] != 'A')
                 continue;
 
-            var w = original[r - 1][c - 1];
-            var x = original[r - 1][c + 1];
-            var y = original[r + 1][c - 1];
-            var z = original[r + 1][c + 1];
-            var test = $"{w}{x}{y}{z}";
-            count += test switch
-            {
-                "MSMS" or "MMSS" or "SMSM" or "SSMM" => 1,
-                _ => 0,
-            };
+            var topLeft = original[r - 1][c - 1];
+            var topRight = original[r - 1][c + 1];
+            var bottomLeft = original[r + 1][c - 1];
+            var bottomRight = original[r + 1][c + 1];
+
+            int[] d1 = [topLeft, bottomRight];
+            int[] d2 = [topRight, bottomLeft];
+
+            if (d1 is ['M', 'S'] or ['S', 'M'] && d2 is ['M', 'S'] or ['S', 'M'])
+                count++;
         }
     }
 
