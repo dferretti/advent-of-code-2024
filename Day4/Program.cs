@@ -1,13 +1,4 @@
-﻿/*
- * flatten the grid of chars into a long string:
- * - first by taking each line and joining it with "|"
- * - then take each column and join with "|"
- * - then take each down-right-diagonal and join with "|"
- * - then each up-right-diagonal
- * Search for occurences of the word and the word in reverse
- */
-
-using System.Buffers;
+﻿using System.Buffers;
 using System.Text;
 
 Part1();
@@ -15,9 +6,32 @@ Part2();
 
 static void Part1()
 {
+    /*
+     * flatten the grid of chars into a long string:
+     * - first by taking each line and joining it with "|"
+     * - then take each column and join with "|"
+     * - then take each down-right-diagonal and join with "|"
+     * - then each up-right-diagonal
+     * Search for occurences of the word and the word in reverse
+     * 
+     * So given a grid of:
+     * A B C
+     * D E F
+     * G H I
+     * we get 4 strings:
+     * - ABC|DEF|GHI
+     * - ADG|BEH|CFI
+     * - G|DH|AEI|BF|C
+     * - A|DB|GEC|HF|I
+     * that are combined into:
+     * ABC|DEF|GHI|ADG|BEH|CFI|G|DH|AEI|BF|C|A|DB|GEC|HF|I
+     * 
+     * Then we use the efficient SearchValues and IndexOfAny to search for XMAS and SAMX at the same time
+     */
+
     var original = File.ReadAllLines("input.txt")
-    .Select(line => line.ToCharArray())
-    .ToArray();
+        .Select(line => line.ToCharArray())
+        .ToArray();
 
     var rows = original.Length;
     var cols = original[0].Length;
