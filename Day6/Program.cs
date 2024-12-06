@@ -24,8 +24,9 @@ for (int row = 0; row < grid.Rows; row++)
 {
     for (int col = 0; col < grid.Cols; col++)
     {
+        // only need to check a position if we know we would have collided with it in part 1
         var newObstacle = new Position(row, col);
-        if (WouldCauseLoop(newObstacle, grid))
+        if (part1Positions.Contains(newObstacle) && WouldCauseLoop(newObstacle, grid))
         {
             //Console.WriteLine($"Would cause loop: {newObstacle}");
             part2Count++;
