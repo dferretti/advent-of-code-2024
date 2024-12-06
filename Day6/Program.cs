@@ -1,49 +1,34 @@
-﻿var chars = File.ReadAllLines("input.txt").Select(line => line.ToCharArray()).ToArray();
-var grid = chars
-    .Select(line => line.Select(c => c switch { '#' => Tile.Obstacle, '>' or '<' or 'v' or '^' => Tile.Guard, _ => Tile.Empty }).ToArray())
-    .ToArray();
+﻿var chars = File.ReadAllLines("example.txt").Select(line => line.ToCharArray()).ToArray();
+var grid = new Grid(chars);
 
-var rows = grid.Length;
-var cols = grid[0].Length;
-
-var guardPos = grid
-    .Index()
-    .SelectMany(row => row.Item.Index().Select(col => (Pos: new Position(row.Index, col.Index), Tile: col.Item)))
-    .Single(x => x.Tile is Tile.Guard)
-    .Pos;
-
-var guardDir = chars[guardPos.Row][guardPos.Col] switch
-{
-    '>' => Direction.Right,
-    '<' => Direction.Left,
-    'v' => Direction.Down,
-    '^' => Direction.Up,
-    _ => throw new InvalidOperationException(),
-};
-
+var part1Positions = new HashSet<Position> { grid.StartPos };
+var guardPos = grid.StartPos;
+var guardDir = grid.StartDir;
 while (true)
 {
-    (guardPos, guardDir, var action) = Step(guardPos, guardDir);
+    (guardPos, guardDir, var action) = Step(guardPos, guardDir, grid);
     if (action == Action.Exit)
         break;
+
+    if (action == Action.Move)
+        part1Positions.Add(guardPos);
 }
 
-Console.WriteLine(Display(grid));
+Console.WriteLine(grid.Display());
 
-var guardPositions = grid.Sum(row => row.Count(tile => tile is Tile.Guard));
-Console.WriteLine($"Count: {guardPositions}");
+var guardPositions = part1Positions.Count;
+Console.WriteLine($"Part 1 count: {guardPositions}");
 
-(Position pos, Direction dir, Action action) Step(Position pos, Direction dir)
+static (Position pos, Direction dir, Action action) Step(Position pos, Direction dir, Grid grid)
 {
     var nextPos = NextPosition(pos, dir);
-    if (!IsInbounds(nextPos))
+    if (!grid.IsInbounds(nextPos))
         return (default, default, Action.Exit);
 
-    var tile = grid[nextPos.Row][nextPos.Col];
+    var tile = grid[nextPos];
     if (tile == Tile.Obstacle)
-        return (pos, NextDirection(dir), Action.Turn);
+        return (pos, TurnRight(dir), Action.Turn);
 
-    grid[nextPos.Row][nextPos.Col] = Tile.Guard;
     return (nextPos, dir, Action.Move);
 }
 
@@ -56,7 +41,7 @@ static Position NextPosition(Position pos, Direction dir) => dir switch
     _ => throw new InvalidOperationException(),
 };
 
-static Direction NextDirection(Direction dir) => dir switch
+static Direction TurnRight(Direction dir) => dir switch
 {
     Direction.Up => Direction.Right,
     Direction.Right => Direction.Down,
@@ -65,15 +50,52 @@ static Direction NextDirection(Direction dir) => dir switch
     _ => throw new InvalidOperationException(),
 };
 
-bool IsInbounds(Position pos) => pos.Row >= 0 && pos.Row < rows && pos.Col >= 0 && pos.Col < cols;
-
-static string Display(Tile[][] grid)
-    => string.Join('\n', grid.Select(row => new string(row.Select(tile => tile switch { Tile.Obstacle => '#', Tile.Guard => 'X', _ => '.' }).ToArray())));
-
-enum Tile { Empty, Obstacle, Guard }
+enum Tile { Empty, Obstacle }
 
 enum Direction { Up, Right, Down, Left }
 
 enum Action { Move, Turn, Exit }
 
 record struct Position(int Row, int Col);
+
+class Grid
+{
+    private readonly Tile[][] _tiles;
+
+    public Position StartPos { get; }
+
+    public Direction StartDir { get; }
+
+    public int Rows => _tiles.Length;
+
+    public int Cols => _tiles[0].Length;
+
+    public Grid(char[][] chars)
+    {
+        _tiles = chars
+            .Select(row => row.Select(c => c switch { '#' => Tile.Obstacle, _ => Tile.Empty }).ToArray())
+            .ToArray();
+
+        StartPos = chars
+            .Index()
+            .SelectMany(row => row.Item.Index().Select(col => (Pos: new Position(row.Index, col.Index), Char: col.Item)))
+            .Single(x => x.Char is '^' or '>' or 'v' or '<')
+            .Pos;
+
+        StartDir = chars[StartPos.Row][StartPos.Col] switch
+        {
+            '>' => Direction.Right,
+            '<' => Direction.Left,
+            'v' => Direction.Down,
+            '^' => Direction.Up,
+            _ => throw new InvalidOperationException(),
+        };
+    }
+
+    public bool IsInbounds(Position pos) => pos.Row >= 0 && pos.Row < Rows && pos.Col >= 0 && pos.Col < Cols;
+
+    public Tile this[Position pos] => _tiles[pos.Row][pos.Col];
+
+    public string Display()
+        => string.Join('\n', _tiles.Select(row => new string(row.Select(tile => tile switch { Tile.Obstacle => '#', _ => '.' }).ToArray())));
+}
