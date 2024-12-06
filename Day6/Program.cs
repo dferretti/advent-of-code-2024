@@ -27,7 +27,7 @@ for (int row = 0; row < grid.Rows; row++)
         var newObstacle = new Position(row, col);
         if (WouldCauseLoop(newObstacle, grid))
         {
-            Console.WriteLine($"Would cause loop: {newObstacle}");
+            //Console.WriteLine($"Would cause loop: {newObstacle}");
             part2Count++;
         }
     }
@@ -117,18 +117,18 @@ class Grid
             .Select(row => row.Select(c => c switch { '#' => Tile.Obstacle, _ => Tile.Empty }).ToImmutableArray())
             .ToImmutableArray();
 
-        StartPos = chars
+        var start = chars
             .Index()
             .SelectMany(row => row.Item.Index().Select(col => (Pos: new Position(row.Index, col.Index), Char: col.Item)))
-            .Single(x => x.Char is '^' or '>' or 'v' or '<')
-            .Pos;
+            .Single(x => x.Char is '^' or '>' or 'v' or '<');
 
-        StartDir = chars[StartPos.Row][StartPos.Col] switch
+        StartPos = start.Pos;
+        StartDir = start.Char switch
         {
-            '>' => Direction.Right,
-            '<' => Direction.Left,
-            'v' => Direction.Down,
             '^' => Direction.Up,
+            '>' => Direction.Right,
+            'v' => Direction.Down,
+            '<' => Direction.Left,
             _ => throw new InvalidOperationException(),
         };
     }
