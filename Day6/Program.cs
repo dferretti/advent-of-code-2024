@@ -1,23 +1,62 @@
-﻿var chars = File.ReadAllLines("example.txt").Select(line => line.ToCharArray()).ToArray();
+﻿var chars = File.ReadAllLines("input.txt").Select(line => line.ToCharArray()).ToArray();
 var grid = new Grid(chars);
 
 var part1Positions = new HashSet<Position> { grid.StartPos };
-var guardPos = grid.StartPos;
-var guardDir = grid.StartDir;
+var pos = grid.StartPos;
+var dir = grid.StartDir;
 while (true)
 {
-    (guardPos, guardDir, var action) = Step(guardPos, guardDir, grid);
+    (pos, dir, var action) = Step(pos, dir, grid);
     if (action == Action.Exit)
         break;
 
     if (action == Action.Move)
-        part1Positions.Add(guardPos);
+        part1Positions.Add(pos);
 }
 
 Console.WriteLine(grid.Display());
+Console.WriteLine($"Part 1 count: {part1Positions.Count}");
 
-var guardPositions = part1Positions.Count;
-Console.WriteLine($"Part 1 count: {guardPositions}");
+var part2Count = 0;
+for (int row = 0; row < grid.Rows; row++)
+{
+    for (int col = 0; col < grid.Cols; col++)
+    {
+        var newObstacle = new Position(row, col);
+        if (WouldCauseLoop(newObstacle, grid))
+        {
+            Console.WriteLine($"Would cause loop: {newObstacle}");
+            part2Count++;
+        }
+    }
+}
+
+Console.WriteLine($"Part 2 count: {part2Count}");
+
+static bool WouldCauseLoop(Position newObstacle, Grid original)
+{
+    if (original[newObstacle] == Tile.Obstacle)
+        return false; // if it is alreay an obstacle
+
+    if (newObstacle == original.StartPos)
+        return false; // can't place new obstacle on start position
+
+    var grid = original.WithNewObstacle(newObstacle);
+
+    var history = new HashSet<(Position, Direction)> { (grid.StartPos, grid.StartDir) };
+    var pos = grid.StartPos;
+    var dir = grid.StartDir;
+    while (true)
+    {
+        (pos, dir, var action) = Step(pos, dir, grid);
+        if (action == Action.Exit)
+            return false;
+
+        // if we have been in this exact position and direction before, we are in a loop
+        if (action == Action.Move && !history.Add((pos, dir)))
+            return true;
+    }
+}
 
 static (Position pos, Direction dir, Action action) Step(Position pos, Direction dir, Grid grid)
 {
@@ -92,10 +131,23 @@ class Grid
         };
     }
 
+    private Grid(Tile[][] tiles, Position startPos, Direction startDir)
+    {
+        _tiles = tiles;
+        StartPos = startPos;
+        StartDir = startDir;
+    }
+
     public bool IsInbounds(Position pos) => pos.Row >= 0 && pos.Row < Rows && pos.Col >= 0 && pos.Col < Cols;
 
     public Tile this[Position pos] => _tiles[pos.Row][pos.Col];
 
     public string Display()
         => string.Join('\n', _tiles.Select(row => new string(row.Select(tile => tile switch { Tile.Obstacle => '#', _ => '.' }).ToArray())));
+
+    public Grid WithNewObstacle(Position pos)
+        => new(
+            _tiles.Select((row, rowIdx) => row.Select((tile, colIdx) => pos.Row == rowIdx && pos.Col == colIdx ? Tile.Obstacle : tile).ToArray()).ToArray(),
+            StartPos,
+            StartDir);
 }
