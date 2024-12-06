@@ -1,4 +1,6 @@
-﻿var chars = File.ReadAllLines("input.txt").Select(line => line.ToCharArray()).ToArray();
+﻿using System.Collections.Immutable;
+
+var chars = File.ReadAllLines("input.txt").Select(line => line.ToCharArray()).ToArray();
 var grid = new Grid(chars);
 
 var part1Positions = new HashSet<Position> { grid.StartPos };
@@ -99,7 +101,7 @@ record struct Position(int Row, int Col);
 
 class Grid
 {
-    private readonly Tile[][] _tiles;
+    private readonly ImmutableArray<ImmutableArray<Tile>> _tiles;
 
     public Position StartPos { get; }
 
@@ -112,8 +114,8 @@ class Grid
     public Grid(char[][] chars)
     {
         _tiles = chars
-            .Select(row => row.Select(c => c switch { '#' => Tile.Obstacle, _ => Tile.Empty }).ToArray())
-            .ToArray();
+            .Select(row => row.Select(c => c switch { '#' => Tile.Obstacle, _ => Tile.Empty }).ToImmutableArray())
+            .ToImmutableArray();
 
         StartPos = chars
             .Index()
@@ -131,7 +133,7 @@ class Grid
         };
     }
 
-    private Grid(Tile[][] tiles, Position startPos, Direction startDir)
+    private Grid(ImmutableArray<ImmutableArray<Tile>> tiles, Position startPos, Direction startDir)
     {
         _tiles = tiles;
         StartPos = startPos;
@@ -147,7 +149,7 @@ class Grid
 
     public Grid WithNewObstacle(Position pos)
         => new(
-            _tiles.Select((row, rowIdx) => row.Select((tile, colIdx) => pos.Row == rowIdx && pos.Col == colIdx ? Tile.Obstacle : tile).ToArray()).ToArray(),
+            _tiles.SetItem(pos.Row, _tiles[pos.Row].SetItem(pos.Col, Tile.Obstacle)),
             StartPos,
             StartDir);
 }
