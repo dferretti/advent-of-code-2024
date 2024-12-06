@@ -1,17 +1,22 @@
-﻿var (listA, listB) = File.ReadAllLines("input.txt")
+﻿using System.Runtime.InteropServices;
+
+var bCounts = new Dictionary<int, int>();
+var (listA, listB) = File.ReadAllLines("input.txt")
     .Aggregate(
         (new List<int>(), new List<int>()),
         (acc, line) =>
         {
             var items = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            acc.Item1.Add(int.Parse(items[0]));
-            acc.Item2.Add(int.Parse(items[1]));
+            var a = int.Parse(items[0]);
+            var b = int.Parse(items[1]);
+            acc.Item1.Add(a);
+            acc.Item2.Add(b);
+            CollectionsMarshal.GetValueRefOrAddDefault(bCounts, b, out _)++;
             return acc;
         });
 
 listA.Sort();
 listB.Sort();
-var bCounts = new Dictionary<int, int>(listB.CountBy(x => x));
 
 var totalDistance = 0;
 var similarityScore = 0;
