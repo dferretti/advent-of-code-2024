@@ -67,7 +67,7 @@ record Vector(int DR, int DC)
     public Vector Reduce()
     {
         var gcd = GCD(Math.Abs(DR), Math.Abs(DC));
-        return new(DR / gcd, DC / gcd);
+        return gcd == 1 ? this : new(DR / gcd, DC / gcd);
     }
 
     private static int GCD(int a, int b) => b == 0 ? a : GCD(b, a % b);
