@@ -6,13 +6,14 @@ for (var row = 0; row < grid.Rows; row++)
 {
     for (var col = 0; col < grid.Cols; col++)
     {
-        var c = grid[new Point(row, col)];
+        var p = new Point(row, col);
+        var c = grid[p];
         if (c == '.') continue;
 
         if (!antennas.TryGetValue(c, out var points))
             points = antennas[c] = [];
 
-        antennas[c].Add(new Point(row, col));
+        points.Add(p);
     }
 }
 
