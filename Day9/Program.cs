@@ -52,8 +52,8 @@ static void Part1(string input)
 static void Part2(string input)
 {
     var memory = new List<int>();
-
     var fileLengths = new Dictionary<int, int>();
+
     {
         var fileId = 0;
         var isFile = true;
@@ -61,7 +61,7 @@ static void Part2(string input)
         {
             var len = Parse(c);
             for (var i = 0; i < len; i++)
-                memory.Add(isFile ? fileId : -len); // store the length for easy access later
+                memory.Add(isFile ? fileId : -len); // store the length of the empty block for easy access later
 
             if (isFile)
             {
@@ -79,12 +79,8 @@ static void Part2(string input)
     var moved = new HashSet<int>();
     while (endIndex >= 0)
     {
-        //var emptyIndex = 0;
-        //while (memory[emptyIndex] >= 0) emptyIndex++;
         while (memory[endIndex] < 0) endIndex--;
         var fileId = memory[endIndex];
-
-        //if (endIndex >= emptyIndex) break;
 
         var fileLength = fileLengths[fileId];
         var emptyIndex = -1;
