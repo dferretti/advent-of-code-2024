@@ -14,10 +14,10 @@ static long Step(long stone, int blinkCountdown, Dictionary<(long, long), long> 
     var key = (stone, blinkCountdown);
     if (cache.TryGetValue(key, out var cached)) return cached;
 
-    long[] nextGen = (stone, TrySplit(stone, out var left, out var right)) switch
+    long[] nextGen = stone switch
     {
-        (0, _) => [1],
-        (_, true) => [left, right],
+        0 => [1],
+        _ when TrySplit(stone, out var left, out var right) => [left, right],
         _ => [stone * 2024],
     };
 
