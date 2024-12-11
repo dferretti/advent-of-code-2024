@@ -1,7 +1,9 @@
 ﻿var stones = File.ReadAllText("input.txt").Split(' ').Select(long.Parse).ToArray();
 
-var part1Count = stones.Sum(s => Step(s, 75, []));
+var part1Count = stones.Sum(s => Step(s, 25, []));
+var part2Count = stones.Sum(s => Step(s, 75, []));
 Console.WriteLine($"Part 1 count: {part1Count}");
+Console.WriteLine($"Part 2 count: {part2Count}");
 
 static long Step(long stone, int blinkCountdown, Dictionary<(long, long), long> cache)
 {
