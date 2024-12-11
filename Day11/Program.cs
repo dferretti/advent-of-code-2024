@@ -1,9 +1,11 @@
 ﻿var stones = File.ReadAllText("input.txt").Split(' ').Select(long.Parse).ToArray();
 
-var part1Count = stones.Sum(s => Step(s, 25, []));
-var part2Count = stones.Sum(s => Step(s, 75, []));
+var cache = new Dictionary<(long, long), long>();
+var part1Count = stones.Sum(s => Step(s, 25, cache));
 Console.WriteLine($"Part 1 count: {part1Count}");
+var part2Count = stones.Sum(s => Step(s, 75, cache));
 Console.WriteLine($"Part 2 count: {part2Count}");
+Console.WriteLine($"Cache size: {cache.Count}");
 
 static long Step(long stone, int blinkCountdown, Dictionary<(long, long), long> cache)
 {
@@ -21,7 +23,7 @@ static long Step(long stone, int blinkCountdown, Dictionary<(long, long), long> 
 
     var result = nextGen.Sum(x => Step(x, blinkCountdown - 1, cache));
 
-    if (stone < 100_000)
+    if (cache.Count < 1_000_000)
         cache[key] = result;
 
     return result;
