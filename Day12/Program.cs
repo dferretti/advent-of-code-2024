@@ -9,8 +9,8 @@ for (var r = 0; r < chars.Length; r++)
 {
     for (var c = 0; c < chars.Length; c++)
     {
-        var plot = plots[r][c]; // GetPlot(chars, r, c);
-        var type = plot.Type; // chars[r][c];
+        var plot = plots[r][c];
+        var type = plot.Type;
         var northRegion = r > 0 ? regionMap[r - 1][c] : outside;
         var westRegion = c > 0 ? regionMap[r][c - 1] : outside;
 
@@ -95,30 +95,21 @@ class Region(char type)
     {
         _plots.Add(plot);
 
+        var left = plot.C > 0 ? chars[plot.R][plot.C - 1] : null;
+        var up = plot.R > 0 ? chars[plot.R - 1][plot.C] : null;
+
         // if it has a north fence, check the left neighbor to see if it is a new side
-        if (plot.Fences.N)
-        {
-            var left = plot.C > 0 ? chars[plot.R][plot.C - 1] : null;
-            if (left == null || left.Type != plot.Type || !left.Fences.N) Sides++;
-        }
+        if (plot.Fences.N && (left == null || left?.Type != plot.Type || !left.Fences.N))
+            Sides++;
 
-        if (plot.Fences.E)
-        {
-            var up = plot.R > 0 ? chars[plot.R - 1][plot.C] : null;
-            if (up == null || up.Type != plot.Type || !up.Fences.E) Sides++;
-        }
+        if (plot.Fences.E && (up == null || up.Type != plot.Type || !up.Fences.E))
+            Sides++;
 
-        if (plot.Fences.S)
-        {
-            var left = plot.C > 0 ? chars[plot.R][plot.C - 1] : null;
-            if (left == null || left.Type != plot.Type || !left.Fences.S) Sides++;
-        }
+        if (plot.Fences.S && (left == null || left.Type != plot.Type || !left.Fences.S))
+            Sides++;
 
-        if (plot.Fences.W)
-        {
-            var up = plot.R > 0 ? chars[plot.R - 1][plot.C] : null;
-            if (up == null || up.Type != plot.Type || !up.Fences.W) Sides++;
-        }
+        if (plot.Fences.W && (up == null || up.Type != plot.Type || !up.Fences.W))
+            Sides++;
     }
 
     public void Merge(Region region)
