@@ -1,20 +1,22 @@
-﻿var chars = File.ReadAllLines("input.txt").Select(line => line.ToCharArray()).ToArray();
-var plots = chars.Select((row, r) => row.Select((col, c) => GetPlot(chars, r, c)).ToArray()).ToArray();
+﻿// grid of plots including what fences each square has
+Plot[][] plots = GetPlots("input.txt");
 
-var regions = new List<Region>();
-var regionMap = chars.Select(row => new Region[row.Length]).ToArray();
+// grid of regions, initially empty. built top-left to bottom-right
+// r = regionMap[r][c] means that plot[r][c] belongs to r. many cells will contain the same region instances
+Region[][] regionMap = plots.Select(row => new Region[row.Length]).ToArray();
 
-var outside = new Region('-');
-for (var r = 0; r < chars.Length; r++)
+// distinct set of regions. using List so we can check order of regions added vs example in problem description
+List<Region> regions = [];
+
+for (var r = 0; r < plots.Length; r++)
 {
-    for (var c = 0; c < chars.Length; c++)
+    for (var c = 0; c < plots.Length; c++)
     {
         var plot = plots[r][c];
-        var type = plot.Type;
-        var northRegion = r > 0 ? regionMap[r - 1][c] : outside;
-        var westRegion = c > 0 ? regionMap[r][c - 1] : outside;
+        var northRegion = r > 0 ? regionMap[r - 1][c] : null;
+        var westRegion = c > 0 ? regionMap[r][c - 1] : null;
 
-        if (northRegion.Type == type && westRegion.Type == type)
+        if (northRegion?.Type == plot.Type && westRegion?.Type == plot.Type)
         {
             northRegion.AddPlot(plot, plots);
 
@@ -28,19 +30,19 @@ for (var r = 0; r < chars.Length; r++)
 
             regionMap[r][c] = northRegion;
         }
-        else if (northRegion.Type == type)
+        else if (northRegion?.Type == plot.Type)
         {
             northRegion.AddPlot(plot, plots);
             regionMap[r][c] = northRegion;
         }
-        else if (westRegion.Type == type)
+        else if (westRegion?.Type == plot.Type)
         {
             westRegion.AddPlot(plot, plots);
             regionMap[r][c] = westRegion;
         }
         else
         {
-            var region = new Region(type);
+            var region = new Region(plot.Type);
             region.AddPlot(plot, plots);
             regions.Add(region);
             regionMap[r][c] = region;
@@ -62,15 +64,22 @@ Console.WriteLine($"Part 2 total price: {regions.Sum(region => region.Price2)}")
  * A A A A C
  */
 
-static Plot GetPlot(char[][] chars, int r, int c)
+
+static Plot[][] GetPlots(string fileName)
 {
-    var type = chars[r][c];
-    var n = (r <= 0 || chars[r - 1][c] != type);
-    var e = (c >= chars[r].Length - 1 || chars[r][c + 1] != type);
-    var s = (r >= chars.Length - 1 || chars[r + 1][c] != type);
-    var w = (c <= 0 || chars[r][c - 1] != type);
-    var fence = new Fence(n, e, s, w);
-    return new(type, r, c, fence);
+    var chars = File.ReadAllLines(fileName).Select(line => line.ToCharArray()).ToArray();
+    return chars.Select((row, r) => row.Select((col, c) => GetPlot(chars, r, c)).ToArray()).ToArray();
+
+    static Plot GetPlot(char[][] chars, int r, int c)
+    {
+        var type = chars[r][c];
+        var n = (r <= 0 || chars[r - 1][c] != type);
+        var e = (c >= chars[r].Length - 1 || chars[r][c + 1] != type);
+        var s = (r >= chars.Length - 1 || chars[r + 1][c] != type);
+        var w = (c <= 0 || chars[r][c - 1] != type);
+        var fence = new Fence(n, e, s, w);
+        return new(type, r, c, fence);
+    }
 }
 
 record Plot(char Type, int R, int C, Fence Fences);
@@ -91,12 +100,12 @@ class Region(char type)
 
     public int Price2 => Area * Sides;
 
-    public void AddPlot(Plot plot, Plot[][] chars)
+    public void AddPlot(Plot plot, Plot[][] plots)
     {
         _plots.Add(plot);
 
-        var left = plot.C > 0 ? chars[plot.R][plot.C - 1] : null;
-        var up = plot.R > 0 ? chars[plot.R - 1][plot.C] : null;
+        var left = plot.C > 0 ? plots[plot.R][plot.C - 1] : null;
+        var up = plot.R > 0 ? plots[plot.R - 1][plot.C] : null;
 
         // if it has a north fence, check the left neighbor to see if it is a new side
         if (plot.Fences.N && (left == null || left?.Type != plot.Type || !left.Fences.N))
