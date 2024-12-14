@@ -70,7 +70,6 @@ static void Part2Attempt2(IReadOnlyList<Robot> robots, int width, int height)
         }
     }
 
-    //int LineScore(int y) => robots.Count(r => r.Position.Y == y);
     // max number of consecutive pixels in a line
     int LineScore(int y)
     {
@@ -103,9 +102,10 @@ static void Part2Attempt3(IReadOnlyList<Robot> robots, int width, int height)
         Console.Clear();
         Console.WriteLine($"Step {step}");
         Print(robots, width, height, 60);
+        Console.ReadLine();
+
         step++;
         Step(robots, width, height, 1);
-        Thread.Sleep(2000);
     }
 }
 
@@ -127,11 +127,7 @@ static int QuadrantScore(IReadOnlyList<Robot> robots, int width, int height, int
 static void Step(IReadOnlyList<Robot> robots, int width, int height, int steps)
 {
     foreach (var robot in robots)
-    {
-        var newPos = robot.Position + (robot.Velocity * steps);
-        var n = newPos.Mod(width, height);
-        robot.Position = (robot.Position + (robot.Velocity * steps)).Mod(width, height);
-    }
+        robot.Position = (robot.Position + (robot.Velocity * steps)).Wrap(width, height);
 }
 
 static void Print(IReadOnlyList<Robot> robots, int width, int height, int? maxHeight = null)
@@ -166,9 +162,9 @@ record Position(int X, int Y)
 {
     public static Position operator +(Position p, Vector v) => new(p.X + v.X, p.Y + v.Y);
 
-    public Position Mod(int width, int height) => new(M(X, width), M(Y, height));
+    public Position Wrap(int width, int height) => new(Mod(X, width), Mod(Y, height));
 
-    private static int M(int x, int m)
+    private static int Mod(int x, int m)
     {
         var r = x % m;
         return r < 0 ? r + m : r;
@@ -184,5 +180,5 @@ class Robot
 {
     public required Position Position { get; set; }
 
-    public required Vector Velocity { get; set; }
+    public required Vector Velocity { get; init; }
 }
