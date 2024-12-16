@@ -5,9 +5,12 @@ var chars = File.ReadAllLines("input.txt")
     .ToArray();
 var grid = new Grid(chars);
 
-Console.WriteLine($"Part 1 score: {GetMinScore(grid)}");
+var result = GetMinScore(grid);
+Console.WriteLine($"Part 1 score: {result.Score} - {result.FinalPath.Actions.OfType<Rotate>().Count()} turns");
+var part2 = GetBestPositions(grid, result.Score);
+Console.WriteLine($"Part 2: {part2.Count}");
 
-static int GetMinScore(Grid grid)
+static (int Score, Path FinalPath) GetMinScore(Grid grid)
 {
     Dictionary<(Position, Direction), Path> cache = [];
     State root = new(grid.Start, Direction.Right, new());
@@ -35,7 +38,7 @@ static int GetMinScore(Grid grid)
 
         var nextPos = state.Position + state.Direction;
         if (grid[nextPos] != Tile.Wall)
-            stack.Push(state.Step(nextPos, state.Direction, new Move(state.Direction)));
+            stack.Push(state.Step(nextPos, state.Direction, new Move(state.Direction, nextPos)));
 
         var d2 = Clockwise(state.Direction);
         stack.Push(state.Step(state.Position, d2, new Rotate(d2)));
@@ -44,7 +47,7 @@ static int GetMinScore(Grid grid)
         stack.Push(state.Step(state.Position, d3, new Rotate(d3)));
     }
 
-    return root.Score ?? throw new InvalidOperationException("No path found from S to E");
+    return (root.Score ?? throw new InvalidOperationException("No path found from S to E"), root.FinalPath!);
 
     // old recursive method that would stack overflow
     /*return GetMinScore(grid, grid.Start, Direction.Right, new(), []).Value;
@@ -71,6 +74,34 @@ static int GetMinScore(Grid grid)
 
         return next.Where(next => next.HasValue).Min();
     }*/
+}
+
+static HashSet<Position> GetBestPositions(Grid grid, int targetScore)
+{
+    HashSet<Position> results = [grid.Start];
+    CollectPositions(targetScore, grid, grid.Start, Direction.Right, new(), [], results);
+    return results;
+
+    static void CollectPositions(int targetScore, Grid grid, Position pos, Direction dir, Path path, Dictionary<(Position, Direction), Path> cache, HashSet<Position> best)
+    {
+        if (pos == grid.End && path.Cost == targetScore)
+        {
+            best.UnionWith(path.Positions);
+            return;
+        }
+
+        if (grid[pos] == Tile.Wall) return;
+
+        if (path.Cost > targetScore) return;
+
+        // if we've been here before, with a better score, bail
+        if (cache.TryGetValue((pos, dir), out var cached) && cached.Cost < path.Cost) return;
+
+        cache[(pos, dir)] = path;
+        CollectPositions(targetScore, grid, pos+dir, dir, path.AddAction(new Move(dir, pos + dir)), cache, best);
+        CollectPositions(targetScore, grid, pos, Clockwise(dir), path.AddAction(new Rotate(Clockwise(dir))), cache, best);
+        CollectPositions(targetScore, grid, pos, CounterClockwise(dir), path.AddAction(new Rotate(CounterClockwise(dir))), cache, best);
+    }
 }
 
 static Tile Parse(char c) => c switch
@@ -114,7 +145,7 @@ record Position(int R, int C)
     };
 }
 interface Action;
-record Move(Direction Direction) : Action;
+record Move(Direction Direction, Position NewPosition) : Action;
 record Rotate(Direction NewDirection) : Action;
 class Grid(Tile[][] chars)
 {
@@ -143,17 +174,33 @@ class Path
         Actions = actions;
     }
     public Path AddAction(Action action) => new(Cost + (action is Move ? 1 : 1000), Actions.Add(action));
+
+    public IEnumerable<Position> Positions => Actions.OfType<Move>().Select(m => m.NewPosition);
 }
 
 record State(Position Position, Direction Direction, Path Path)
 {
     public int? Score { get; private set; }
+    public Path? FinalPath { get; private set; }
     public State? Parent { get; private set; }
     public State Step(Position pos, Direction dir, Action action)
         => new(pos, dir, Path.AddAction(action)) { Parent = this };
     public void SetScore(int score)
     {
-        Score = Score is null ? score : Math.Min(Score.Value, score);
-        Parent?.SetScore(score);
+        //Score = Score is null ? score : Math.Min(Score.Value, score);
+        //Parent?.SetScore(score);
+        Score = score;
+        FinalPath = Path;
+        Parent?.SetScore(this);
+    }
+
+    private void SetScore(State child)
+    {
+        if (Score is null || child.Score < Score)
+        {
+            Score = child.Score;
+            FinalPath = child.FinalPath;
+            Parent?.SetScore(this);
+        }
     }
 }
