@@ -5,102 +5,189 @@ var chars = File.ReadAllLines("input.txt")
     .ToArray();
 var grid = new Grid(chars);
 
-var result = GetMinScore(grid);
-Console.WriteLine($"Part 1 score: {result.Score} - {result.FinalPath.Actions.OfType<Rotate>().Count()} turns");
-var part2 = GetBestPositions(grid, result.Score);
-Console.WriteLine($"Part 2: {part2.Count}");
+//BruteForce(grid);
+Dijkstra(grid);
 
-static (int Score, Path FinalPath) GetMinScore(Grid grid)
+static void Dijkstra(Grid grid)
 {
-    Dictionary<(Position, Direction), Path> cache = [];
-    State root = new(grid.Start, Direction.Right, new());
-    Stack<State> stack = new([root]); // move the stack to the heap lol
+    var pq = new PriorityQueue<Node, int>();
 
-    var count = 0;
-    while (stack.TryPop(out var state))
+    var source = new Node(grid.Start, Direction.Right);
+    var dist = new Dictionary<Node, int> { [source] = 0 };
+    var prev = new Dictionary<Node, List<Node>>();
+    var ends = new List<Node>();
+    pq.Enqueue(source, 0);
+
+    for (var r = 0; r < grid.Rows; r++)
     {
-        // if we've been here before, with a better score, bail
-        if (cache.TryGetValue((state.Position, state.Direction), out var cached) && cached.Cost <= state.Path.Cost) continue;
-
-        cache[(state.Position, state.Direction)] = state.Path;
-
-        count++;
-        if (count % 100_000 == 0)
-            Console.WriteLine($"{count} - ({state.Position.R},{state.Position.C}) {state.Direction}");
-
-        if (state.Position == grid.End)
+        for (var c = 0; c < grid.Cols; c++)
         {
-            state.SetScore(state.Path.Cost);
-            continue;
+            var pos = new Position(r, c);
+            if (grid[pos] == Tile.Wall) continue;
+
+            foreach (var dir in Enum.GetValues<Direction>())
+            {
+                var node = new Node(pos, dir);
+
+                if (node == source) continue;
+
+                dist[node] = int.MaxValue;
+                pq.Enqueue(node, int.MaxValue);
+
+                if (grid[pos] == Tile.End)
+                    ends.Add(node);
+            }
         }
-
-        if (grid[state.Position] == Tile.Wall) continue;
-
-        var nextPos = state.Position + state.Direction;
-        if (grid[nextPos] != Tile.Wall)
-            stack.Push(state.Step(nextPos, state.Direction, new Move(state.Direction, nextPos)));
-
-        var d2 = Clockwise(state.Direction);
-        stack.Push(state.Step(state.Position, d2, new Rotate(d2)));
-
-        var d3 = CounterClockwise(state.Direction);
-        stack.Push(state.Step(state.Position, d3, new Rotate(d3)));
     }
 
-    return (root.Score ?? throw new InvalidOperationException("No path found from S to E"), root.FinalPath!);
-
-    // old recursive method that would stack overflow
-    /*return GetMinScore(grid, grid.Start, Direction.Right, new(), []).Value;
-
-    static int? GetMinScore(Grid grid, Position pos, Direction dir, Path path, Dictionary<(Position, Direction), Path> cache)
+    while (pq.TryDequeue(out var node, out var priority))
     {
-        if (pos == grid.End) return path.Score;
+        foreach (var n in GetNeighbors(grid, node))
+        {
+            var alt = dist[node] + (n.Direction == node.Direction ? 1 : 1000);
+            if (alt <= dist[n])
+            {
+                dist[n] = alt;
+                if (!prev.TryGetValue(n, out var prevs))
+                    prev[n] = prevs = [];
+                prevs.Add(node);
 
-        if (grid[pos] == Tile.Wall) return null;
+                // https://github.com/dotnet/runtime/issues/44871#issuecomment-1868915208 - pq.Update(n, alt);
+                pq.Remove(n, out _, out _);
+                pq.Enqueue(n, alt);
+            }
+        }
+    }
 
-        // if we've been here before, with a better score, bail
-        if (cache.TryGetValue((pos, dir), out var cached) && cached.Score <= path.Score) return null;
+    var minScore = ends.Min(end => dist[end]);
+    Console.WriteLine($"Part 1 score: {minScore}");
+    var positions = new HashSet<Position>();
+    foreach (var end in ends)
+    {
+        if (dist[end] > minScore) continue;
 
-        cache[(pos, dir)] = path;
+        Backtrace(prev, end, positions);
 
-        var next = new List<int?>();
+        static void Backtrace(Dictionary<Node, List<Node>> prev, Node node, HashSet<Position> positions)
+        {
+            positions.Add(node.Position);
 
-        var nextPos = pos + dir;
+            if (!prev.TryGetValue(node, out var prevs)) return;
+            foreach (var p in prevs)
+                Backtrace(prev, p, positions);
+        }
+    }
+    Console.WriteLine($"Part 2 score: {positions.Count}");
+
+    static IEnumerable<Node> GetNeighbors(Grid grid, Node node)
+    {
+        var nextPos = node.Position + node.Direction;
         if (grid[nextPos] != Tile.Wall)
-            next.Add(GetMinScore(grid, nextPos, dir, path.AddAction(new Move(dir)), cache));
-
-        next.Add(GetMinScore(grid, pos, Clockwise(dir), path.AddAction(new Rotate(Clockwise(dir))), cache));
-        next.Add(GetMinScore(grid, pos, CounterClockwise(dir), path.AddAction(new Rotate(CounterClockwise(dir))), cache));
-
-        return next.Where(next => next.HasValue).Min();
-    }*/
+            yield return new Node(nextPos, node.Direction);
+        yield return new Node(node.Position, Clockwise(node.Direction));
+        yield return new Node(node.Position, CounterClockwise(node.Direction));
+    }
 }
 
-static HashSet<Position> GetBestPositions(Grid grid, int targetScore)
+static void BruteForce(Grid grid)
 {
-    HashSet<Position> results = [grid.Start];
-    CollectPositions(targetScore, grid, grid.Start, Direction.Right, new(), [], results);
-    return results;
+    var result = GetMinScore(grid);
+    Console.WriteLine($"Part 1 score: {result.Score} - {result.FinalPath.Actions.OfType<Rotate>().Count()} turns");
+    var part2 = GetBestPositions(grid, result.Score);
+    Console.WriteLine($"Part 2: {part2.Count}");
 
-    static void CollectPositions(int targetScore, Grid grid, Position pos, Direction dir, Path path, Dictionary<(Position, Direction), Path> cache, HashSet<Position> best)
+    static (int Score, Path FinalPath) GetMinScore(Grid grid)
     {
-        if (pos == grid.End && path.Cost == targetScore)
+        Dictionary<(Position, Direction), Path> cache = [];
+        State root = new(grid.Start, Direction.Right, new());
+        Stack<State> stack = new([root]); // move the stack to the heap lol
+
+        var count = 0;
+        while (stack.TryPop(out var state))
         {
-            best.UnionWith(path.Positions);
-            return;
+            // if we've been here before, with a better score, bail
+            if (cache.TryGetValue((state.Position, state.Direction), out var cached) && cached.Cost <= state.Path.Cost) continue;
+
+            cache[(state.Position, state.Direction)] = state.Path;
+
+            count++;
+            if (count % 100_000 == 0)
+                Console.WriteLine($"{count} - ({state.Position.R},{state.Position.C}) {state.Direction}");
+
+            if (state.Position == grid.End)
+            {
+                state.SetScore(state.Path.Cost);
+                continue;
+            }
+
+            if (grid[state.Position] == Tile.Wall) continue;
+
+            var nextPos = state.Position + state.Direction;
+            if (grid[nextPos] != Tile.Wall)
+                stack.Push(state.Step(nextPos, state.Direction, new Move(state.Direction, nextPos)));
+
+            var d2 = Clockwise(state.Direction);
+            stack.Push(state.Step(state.Position, d2, new Rotate(d2)));
+
+            var d3 = CounterClockwise(state.Direction);
+            stack.Push(state.Step(state.Position, d3, new Rotate(d3)));
         }
 
-        if (grid[pos] == Tile.Wall) return;
+        return (root.Score ?? throw new InvalidOperationException("No path found from S to E"), root.FinalPath!);
 
-        if (path.Cost > targetScore) return;
+        // old recursive method that would stack overflow
+        /*return GetMinScore(grid, grid.Start, Direction.Right, new(), []).Value;
 
-        // if we've been here before, with a better score, bail
-        if (cache.TryGetValue((pos, dir), out var cached) && cached.Cost < path.Cost) return;
+        static int? GetMinScore(Grid grid, Position pos, Direction dir, Path path, Dictionary<(Position, Direction), Path> cache)
+        {
+            if (pos == grid.End) return path.Score;
 
-        cache[(pos, dir)] = path;
-        CollectPositions(targetScore, grid, pos+dir, dir, path.AddAction(new Move(dir, pos + dir)), cache, best);
-        CollectPositions(targetScore, grid, pos, Clockwise(dir), path.AddAction(new Rotate(Clockwise(dir))), cache, best);
-        CollectPositions(targetScore, grid, pos, CounterClockwise(dir), path.AddAction(new Rotate(CounterClockwise(dir))), cache, best);
+            if (grid[pos] == Tile.Wall) return null;
+
+            // if we've been here before, with a better score, bail
+            if (cache.TryGetValue((pos, dir), out var cached) && cached.Score <= path.Score) return null;
+
+            cache[(pos, dir)] = path;
+
+            var next = new List<int?>();
+
+            var nextPos = pos + dir;
+            if (grid[nextPos] != Tile.Wall)
+                next.Add(GetMinScore(grid, nextPos, dir, path.AddAction(new Move(dir)), cache));
+
+            next.Add(GetMinScore(grid, pos, Clockwise(dir), path.AddAction(new Rotate(Clockwise(dir))), cache));
+            next.Add(GetMinScore(grid, pos, CounterClockwise(dir), path.AddAction(new Rotate(CounterClockwise(dir))), cache));
+
+            return next.Where(next => next.HasValue).Min();
+        }*/
+    }
+
+    static HashSet<Position> GetBestPositions(Grid grid, int targetScore)
+    {
+        HashSet<Position> results = [grid.Start];
+        CollectPositions(targetScore, grid, grid.Start, Direction.Right, new(), [], results);
+        return results;
+
+        static void CollectPositions(int targetScore, Grid grid, Position pos, Direction dir, Path path, Dictionary<(Position, Direction), Path> cache, HashSet<Position> best)
+        {
+            if (pos == grid.End && path.Cost == targetScore)
+            {
+                best.UnionWith(path.Positions);
+                return;
+            }
+
+            if (grid[pos] == Tile.Wall) return;
+
+            if (path.Cost > targetScore) return;
+
+            // if we've been here before, with a better score, bail
+            if (cache.TryGetValue((pos, dir), out var cached) && cached.Cost < path.Cost) return;
+
+            cache[(pos, dir)] = path;
+            CollectPositions(targetScore, grid, pos + dir, dir, path.AddAction(new Move(dir, pos + dir)), cache, best);
+            CollectPositions(targetScore, grid, pos, Clockwise(dir), path.AddAction(new Rotate(Clockwise(dir))), cache, best);
+            CollectPositions(targetScore, grid, pos, CounterClockwise(dir), path.AddAction(new Rotate(CounterClockwise(dir))), cache, best);
+        }
     }
 }
 
@@ -149,6 +236,8 @@ record Move(Direction Direction, Position NewPosition) : Action;
 record Rotate(Direction NewDirection) : Action;
 class Grid(Tile[][] chars)
 {
+    public int Rows => chars.Length;
+    public int Cols => chars[0].Length;
     public Tile this[Position pos] => chars[pos.R][pos.C];
 
     public Position Start { get; } = chars
@@ -204,3 +293,5 @@ record State(Position Position, Direction Direction, Path Path)
         }
     }
 }
+
+record Node(Position Position, Direction Direction);
