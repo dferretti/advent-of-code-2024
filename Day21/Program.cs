@@ -3,6 +3,16 @@
 var part1Sum = 0;
 var part2Sum = 0;
 
+foreach (var d1 in Enum.GetValues<NumPad>())
+{
+    foreach (var d2 in Enum.GetValues<NumPad>())
+    {
+        if (d1 is NumPad.Fail || d2 is NumPad.Fail) continue;
+
+        Console.WriteLine($"{d1} -> {d2}: {string.Join("", ShortestNumPadPath(d1, d2).Select(DPadToChar))}");
+    }
+}
+
 foreach (var code in File.ReadAllLines("example.txt"))
 {
     var path1 = FindShortestSequence(code, 2);
@@ -15,8 +25,8 @@ foreach (var code in File.ReadAllLines("example.txt"))
     Console.WriteLine($"{code}: {string.Join("", path1.Select(DPadToChar))}: {ParseCode(code)} x {path1.Count}");
     part1Sum += ParseCode(code) * path1.Count;
 
-    var path2 = FindShortestSequence(code, 25);
-    state = Execute(code, 25, path2);
+    var path2 = FindShortestSequence(code, 2);
+    state = Execute(code, 2, path2);
     if (code != state.LastRobotOutput)
         throw new InvalidOperationException($"Path does not produce expected output: {code} != {state.LastRobotOutput}");
 
@@ -209,6 +219,130 @@ static DPad CharToDPad(char c) => c switch
 };
 
 static int ParseCode(string code) => int.Parse(code[..^1]);
+
+static DPad[] ShortestNumPadPath(NumPad start, NumPad end)
+{
+    var x = ShortestNumPadPath(start, end, true);
+
+    var startP = GetPos(start);
+    var endP = GetPos(end);
+    var y = Enumerable.Empty<DPad>()
+        .Concat(Enumerable.Range(0, Math.Clamp(startP.R - endP.R, 0, 3)).Select(_ => DPad.Up))
+        .Concat(Enumerable.Range(0, Math.Clamp(endP.C - startP.C, 0, 2)).Select(_ => DPad.Right))
+        .Concat(Enumerable.Range(0, Math.Clamp(startP.C - endP.C, 0, 2)).Select(_ => DPad.Left))
+        .Concat(Enumerable.Range(0, Math.Clamp(endP.R - startP.R, 0, 3)).Select(_ => DPad.Down))
+        .ToArray();
+
+    if (!x.SequenceEqual(y))
+        throw new Exception($"{start} -> {end}. {string.Join(',', x)} -- {string.Join(',', y)}");
+
+    return x;
+
+    static (int R, int C) GetPos(NumPad n) => n switch
+    {
+        NumPad.Seven => (0, 0),
+        NumPad.Eight => (0, 1),
+        NumPad.Nine => (0, 2),
+        NumPad.Four => (1, 0),
+        NumPad.Five => (1, 1),
+        NumPad.Six => (1, 2),
+        NumPad.One => (2, 0),
+        NumPad.Two => (2, 1),
+        NumPad.Three => (2, 2),
+        NumPad.Zero => (3, 1),
+        NumPad.A => (3, 2),
+        _ => throw new InvalidOperationException($"Unexpected numpad: {x}"),
+    };
+
+    // true = retry with params swapped. false = throw
+    static DPad[] ShortestNumPadPath(NumPad start, NumPad end, bool throwOrReverse) => (start, end) switch
+    {
+        _ when start == end => [],
+
+        (NumPad.Zero, NumPad.One) => [DPad.Up, DPad.Left],
+        (NumPad.Zero, NumPad.Two) => [DPad.Up],
+        (NumPad.Zero, NumPad.Three) => [DPad.Up, DPad.Right],
+        (NumPad.Zero, NumPad.Four) => [DPad.Up, DPad.Up, DPad.Left],
+        (NumPad.Zero, NumPad.Five) => [DPad.Up, DPad.Up],
+        (NumPad.Zero, NumPad.Six) => [DPad.Up, DPad.Up, DPad.Right],
+        (NumPad.Zero, NumPad.Seven) => [DPad.Up, DPad.Up, DPad.Up, DPad.Left],
+        (NumPad.Zero, NumPad.Eight) => [DPad.Up, DPad.Up, DPad.Up],
+        (NumPad.Zero, NumPad.Nine) => [DPad.Up, DPad.Up, DPad.Up, DPad.Right],
+        (NumPad.Zero, NumPad.A) => [DPad.Right],
+
+        (NumPad.One, NumPad.Two) => [DPad.Right],
+        (NumPad.One, NumPad.Three) => [DPad.Right, DPad.Right],
+        (NumPad.One, NumPad.Four) => [DPad.Up],
+        (NumPad.One, NumPad.Five) => [DPad.Up, DPad.Right],
+        (NumPad.One, NumPad.Six) => [DPad.Up, DPad.Right, DPad.Right],
+        (NumPad.One, NumPad.Seven) => [DPad.Up, DPad.Up],
+        (NumPad.One, NumPad.Eight) => [DPad.Up, DPad.Up, DPad.Right],
+        (NumPad.One, NumPad.Nine) => [DPad.Up, DPad.Up, DPad.Right, DPad.Right],
+        (NumPad.One, NumPad.A) => [DPad.Right, DPad.Right, DPad.Down],
+
+        (NumPad.Two, NumPad.Three) => [DPad.Right],
+        (NumPad.Two, NumPad.Four) => [DPad.Up, DPad.Left],
+        (NumPad.Two, NumPad.Five) => [DPad.Up],
+        (NumPad.Two, NumPad.Six) => [DPad.Up, DPad.Right],
+        (NumPad.Two, NumPad.Seven) => [DPad.Up, DPad.Up, DPad.Left],
+        (NumPad.Two, NumPad.Eight) => [DPad.Up, DPad.Up],
+        (NumPad.Two, NumPad.Nine) => [DPad.Up, DPad.Up, DPad.Right],
+        (NumPad.Two, NumPad.A) => [DPad.Right, DPad.Down],
+
+        (NumPad.Three, NumPad.Four) => [DPad.Up, DPad.Left, DPad.Left],
+        (NumPad.Three, NumPad.Five) => [DPad.Up, DPad.Left],
+        (NumPad.Three, NumPad.Six) => [DPad.Up],
+        (NumPad.Three, NumPad.Seven) => [DPad.Up, DPad.Up, DPad.Left, DPad.Left],
+        (NumPad.Three, NumPad.Eight) => [DPad.Up, DPad.Up, DPad.Left],
+        (NumPad.Three, NumPad.Nine) => [DPad.Up, DPad.Up],
+        (NumPad.Three, NumPad.A) => [DPad.Down],
+
+        (NumPad.Four, NumPad.Five) => [DPad.Right],
+        (NumPad.Four, NumPad.Six) => [DPad.Right, DPad.Right],
+        (NumPad.Four, NumPad.Seven) => [DPad.Up],
+        (NumPad.Four, NumPad.Eight) => [DPad.Up, DPad.Right],
+        (NumPad.Four, NumPad.Nine) => [DPad.Up, DPad.Right, DPad.Right],
+        (NumPad.Four, NumPad.A) => [DPad.Right, DPad.Right, DPad.Down, DPad.Down],
+
+        (NumPad.Five, NumPad.Six) => [DPad.Right],
+        (NumPad.Five, NumPad.Seven) => [DPad.Up, DPad.Left],
+        (NumPad.Five, NumPad.Eight) => [DPad.Up],
+        (NumPad.Five, NumPad.Nine) => [DPad.Up, DPad.Right],
+        (NumPad.Five, NumPad.A) => [DPad.Right, DPad.Down, DPad.Down],
+
+        (NumPad.Six, NumPad.Seven) => [DPad.Up, DPad.Left, DPad.Left],
+        (NumPad.Six, NumPad.Eight) => [DPad.Up, DPad.Left],
+        (NumPad.Six, NumPad.Nine) => [DPad.Up],
+        (NumPad.Six, NumPad.A) => [DPad.Down, DPad.Down],
+
+        (NumPad.Seven, NumPad.Eight) => [DPad.Right],
+        (NumPad.Seven, NumPad.Nine) => [DPad.Right, DPad.Right],
+        (NumPad.Seven, NumPad.A) => [DPad.Right, DPad.Right, DPad.Down, DPad.Down, DPad.Down],
+
+        (NumPad.Eight, NumPad.Nine) => [DPad.Right],
+        (NumPad.Eight, NumPad.A) => [DPad.Right, DPad.Down, DPad.Down, DPad.Down],
+
+        (NumPad.Nine, NumPad.A) => [DPad.Down, DPad.Down, DPad.Down],
+
+        _ => throwOrReverse switch
+        {
+            true => Reverse(ShortestNumPadPath(end, start, false)),
+            false => throw new InvalidOperationException($"Unexpected start and end: ({start},{end})"),
+        },
+    };
+
+    static DPad[] Reverse(DPad[] original) => original
+        .Reverse()
+        .Select(x => x switch
+        {
+            DPad.Up => DPad.Down,
+            DPad.Down => DPad.Up,
+            DPad.Left => DPad.Right,
+            DPad.Right => DPad.Left,
+            _ => throw new InvalidOperationException($"Unexpected dpad: {x}"),
+        })
+        .ToArray();
+}
 
 enum DPad { Up, Left, Down, Right, A, Fail }
 
