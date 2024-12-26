@@ -1,23 +1,35 @@
-﻿var part1Sum = 0;
+﻿using System.Collections.Immutable;
+
+var part1Sum = 0;
+var part2Sum = 0;
+
 foreach (var code in File.ReadAllLines("example.txt"))
 {
-    // var moves = "<vA<AA>>^AvAA<^A>A<v<A>>^AvA^A<vA>^A<v<A>^A>AAvA^A<v<A>A>^AAAvA<^A>A";
-    var path = FindShortestSequence(code);
+    var path1 = FindShortestSequence(code, 2);
 
     // verify
-    var state = Execute(code, path);
+    var state = Execute(code, 2, path1);
     if (code != state.LastRobotOutput)
         throw new InvalidOperationException($"Path does not produce expected output: {code} != {state.LastRobotOutput}");
 
-    Console.WriteLine($"{code}: {string.Join("", path.Select(DPadToChar))}: {ParseCode(code)} x {path.Count}");
-    part1Sum += ParseCode(code) * path.Count;
+    Console.WriteLine($"{code}: {string.Join("", path1.Select(DPadToChar))}: {ParseCode(code)} x {path1.Count}");
+    part1Sum += ParseCode(code) * path1.Count;
+
+    var path2 = FindShortestSequence(code, 25);
+    state = Execute(code, 25, path2);
+    if (code != state.LastRobotOutput)
+        throw new InvalidOperationException($"Path does not produce expected output: {code} != {state.LastRobotOutput}");
+
+    Console.WriteLine($"{code}: {string.Join("", path2.Select(DPadToChar))}: {ParseCode(code)} x {path2.Count}");
+    part2Sum += ParseCode(code) * path2.Count;
 }
 
 Console.WriteLine($"Part 1: {part1Sum}");
+Console.WriteLine($"Part 2: {part2Sum}");
 
-static List<DPad> FindShortestSequence(string code)
+static List<DPad> FindShortestSequence(string code, int numDPadRobots)
 {
-    var start = new State { Robot1 = DPad.A, Robot2 = DPad.A, LastRobot = NumPad.A };
+    var start = new State(numDPadRobots);
     var openSet = new PriorityQueue<State, int>();
     openSet.Enqueue(start, 0);
     var cameFrom = new Dictionary<State, (State State, DPad Input)>();
@@ -69,9 +81,9 @@ static List<DPad> FindShortestSequence(string code)
     }
 }
 
-static State Execute(string code, IEnumerable<DPad> moves)
+static State Execute(string code, int numDPadRobots, IEnumerable<DPad> moves)
 {
-    var state = new State { Robot1 = DPad.A, Robot2 = DPad.A, LastRobot = NumPad.A };
+    var state = new State(numDPadRobots);
 
     foreach (var input in moves)
     {
@@ -86,21 +98,22 @@ static State Execute(string code, IEnumerable<DPad> moves)
 
 static State Step(State current, DPad input) => input switch
 {
-    DPad.Up or DPad.Left or DPad.Right or DPad.Down => current with { Robot1 = MoveDPad(current.Robot1, input) },
-    DPad.A => ActOnRobot1(current),
+    DPad.Up or DPad.Left or DPad.Right or DPad.Down => current with { Robots = current.Robots.SetItem(0, MoveDPad(current.Robots[0], input)) },
+    DPad.A => ActOnDPadRobot(current, 1),
     _ => throw new InvalidOperationException("User error"),
 };
 
-static State ActOnRobot1(State current) => current.Robot1 switch
+static State ActOnDPadRobot(State current, int index) => current.Robots[index - 1] switch
 {
-    DPad.Up or DPad.Left or DPad.Right or DPad.Down => current with { Robot2 = MoveDPad(current.Robot2, current.Robot1) },
-    DPad.A => ActOnRobot2(current),
+    DPad.Up or DPad.Left or DPad.Right or DPad.Down => current with { Robots = current.Robots.SetItem(index, MoveDPad(current.Robots[index], current.Robots[index - 1])) },
+    DPad.A when index < current.Robots.Length - 1 => ActOnDPadRobot(current, index + 1),
+    DPad.A => ActOnLastRobot(current),
     _ => throw new InvalidOperationException("User error"),
 };
 
-static State ActOnRobot2(State current) => current.Robot2 switch
+static State ActOnLastRobot(State current) => current.Robots[^1] switch
 {
-    DPad.Up or DPad.Left or DPad.Right or DPad.Down => current with { LastRobot = MoveNumPad(current.LastRobot, current.Robot2) },
+    DPad.Up or DPad.Left or DPad.Right or DPad.Down => current with { LastRobot = MoveNumPad(current.LastRobot, current.Robots[^1]) },
     DPad.A => current with { LastRobotOutput = current.LastRobotOutput + NumPadToChar(current.LastRobot) },
     _ => throw new InvalidOperationException("User error"),
 };
@@ -201,19 +214,24 @@ enum DPad { Up, Left, Down, Right, A, Fail }
 
 enum NumPad { One, Two, Three, Four, Five, Six, Seven, Eight, Nine, Zero, A, Fail }
 
-record State
+sealed record State(int numDPadRobots)
 {
-    public DPad Robot1 { get; init; }
-    public DPad Robot2 { get; init; }
-    public NumPad LastRobot { get; init; }
-    //public ImmutableArray<NumPad> LastRobotOutput { get; init; } = [];
+    public ImmutableArray<DPad> Robots { get; init; } = Enumerable.Range(0, numDPadRobots).Select(_ => DPad.A).ToImmutableArray();
+    public NumPad LastRobot { get; init; } = NumPad.A;
     public string LastRobotOutput { get; init; } = string.Empty;
 
     public bool IsValid(string targetCode)
     {
-        if (Robot1 is DPad.Fail || Robot2 is DPad.Fail || LastRobot is NumPad.Fail)
+        if (Robots.Any(x => x is DPad.Fail) || LastRobot is NumPad.Fail)
             return false;
 
         return targetCode.StartsWith(LastRobotOutput);
     }
+
+    public override int GetHashCode() => HashCode.Combine(LastRobot, LastRobotOutput, Robots.Length);
+
+    public bool Equals(State? other) => other is not null
+        && other.LastRobot == LastRobot
+        && other.LastRobotOutput == LastRobotOutput
+        && other.Robots.SequenceEqual(Robots);
 }
