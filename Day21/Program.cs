@@ -1,30 +1,83 @@
-﻿using System.Collections.Immutable;
+﻿var part1Sum = 0;
+foreach (var code in File.ReadAllLines("example.txt"))
+{
+    // var moves = "<vA<AA>>^AvAA<^A>A<v<A>>^AvA^A<vA>^A<v<A>^A>AAvA^A<v<A>A>^AAAvA<^A>A";
+    var path = FindShortestSequence(code);
 
-var code = "029A";
-var moves = "<vA<AA>>^AvAA<^A>A<v<A>>^AvA^A<vA>^A<v<A>^A>AAvA^A<v<A>A>^AAAvA<^A>A";
-var state = Execute(moves);
-var result = new string(state.LastRobotOutput.Select(NumPadToChar).ToArray());
-Console.WriteLine($"{result}: {ParseCode(result)} x {moves.Length}");
+    // verify
+    var state = Execute(code, path);
+    if (code != state.LastRobotOutput)
+        throw new InvalidOperationException($"Path does not produce expected output: {code} != {state.LastRobotOutput}");
 
-static State Execute(ReadOnlySpan<char> moves)
+    Console.WriteLine($"{code}: {string.Join("", path.Select(DPadToChar))}: {ParseCode(code)} x {path.Count}");
+    part1Sum += ParseCode(code) * path.Count;
+}
+
+Console.WriteLine($"Part 1: {part1Sum}");
+
+static List<DPad> FindShortestSequence(string code)
+{
+    var start = new State { Robot1 = DPad.A, Robot2 = DPad.A, LastRobot = NumPad.A };
+    var openSet = new PriorityQueue<State, int>();
+    openSet.Enqueue(start, 0);
+    var cameFrom = new Dictionary<State, (State State, DPad Input)>();
+    var gScore = new Dictionary<State, int> { [start] = 0 };
+
+    while (openSet.TryDequeue(out var current, out _))
+    {
+        if (current.LastRobotOutput == code)
+            return ReconstructPath(cameFrom, current);
+
+        foreach (var input in Enum.GetValues<DPad>())
+        {
+            if (input is DPad.Fail)
+                continue;
+
+            var neighbor = Step(current, input);
+            if (!neighbor.IsValid(code))
+                continue;
+
+            if (!gScore.TryGetValue(current, out var gScoreCurrent))
+                continue;
+
+            var tentativeGScore = gScoreCurrent + 1;
+            if (tentativeGScore < gScore.GetValueOrDefault(neighbor, int.MaxValue))
+            {
+                cameFrom[neighbor] = (current, input);
+                gScore[neighbor] = tentativeGScore;
+                var fScore = tentativeGScore + Heuristic(neighbor, code);
+                openSet.Remove(neighbor, out _, out _);
+                openSet.Enqueue(neighbor, fScore);
+            }
+        }
+    }
+
+    throw new InvalidOperationException("No path found");
+
+    static int Heuristic(State current, string targetCode) => targetCode.Length - current.LastRobotOutput.Length;
+
+    static List<DPad> ReconstructPath(Dictionary<State, (State State, DPad Input)> cameFrom, State current)
+    {
+        var path = new List<DPad>();
+        while (cameFrom.TryGetValue(current, out var x))
+        {
+            path.Insert(0, x.Input);
+            current = x.State;
+        }
+
+        return path;
+    }
+}
+
+static State Execute(string code, IEnumerable<DPad> moves)
 {
     var state = new State { Robot1 = DPad.A, Robot2 = DPad.A, LastRobot = NumPad.A };
 
-    foreach (var c in moves)
+    foreach (var input in moves)
     {
-        var input = c switch
-        {
-            '^' => DPad.Up,
-            '<' => DPad.Left,
-            'v' => DPad.Down,
-            '>' => DPad.Right,
-            'A' => DPad.A,
-            _ => throw new InvalidOperationException("User error"),
-        };
-
         state = Step(state, input);
 
-        if (state.IsFail)
+        if (!state.IsValid(code))
             throw new InvalidOperationException("User error - ended up in invalid state");
     }
 
@@ -48,7 +101,7 @@ static State ActOnRobot1(State current) => current.Robot1 switch
 static State ActOnRobot2(State current) => current.Robot2 switch
 {
     DPad.Up or DPad.Left or DPad.Right or DPad.Down => current with { LastRobot = MoveNumPad(current.LastRobot, current.Robot2) },
-    DPad.A => current with { LastRobotOutput = current.LastRobotOutput.Add(current.LastRobot) },
+    DPad.A => current with { LastRobotOutput = current.LastRobotOutput + NumPadToChar(current.LastRobot) },
     _ => throw new InvalidOperationException("User error"),
 };
 
@@ -132,6 +185,16 @@ static char DPadToChar(DPad dpad) => dpad switch
     _ => throw new InvalidOperationException("User error"),
 };
 
+static DPad CharToDPad(char c) => c switch
+{
+    '^' => DPad.Up,
+    '<' => DPad.Left,
+    'v' => DPad.Down,
+    '>' => DPad.Right,
+    'A' => DPad.A,
+    _ => throw new InvalidOperationException("User error"),
+};
+
 static int ParseCode(string code) => int.Parse(code[..^1]);
 
 enum DPad { Up, Left, Down, Right, A, Fail }
@@ -143,7 +206,14 @@ record State
     public DPad Robot1 { get; init; }
     public DPad Robot2 { get; init; }
     public NumPad LastRobot { get; init; }
-    public ImmutableArray<NumPad> LastRobotOutput { get; init; } = [];
+    //public ImmutableArray<NumPad> LastRobotOutput { get; init; } = [];
+    public string LastRobotOutput { get; init; } = string.Empty;
 
-    public bool IsFail => Robot1 is DPad.Fail || Robot2 is DPad.Fail || LastRobot is NumPad.Fail;
+    public bool IsValid(string targetCode)
+    {
+        if (Robot1 is DPad.Fail || Robot2 is DPad.Fail || LastRobot is NumPad.Fail)
+            return false;
+
+        return targetCode.StartsWith(LastRobotOutput);
+    }
 }
