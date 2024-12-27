@@ -3,53 +3,111 @@
 var part1Sum = 0;
 var part2Sum = 0;
 
-foreach (var d1 in Enum.GetValues<NumPad>())
-{
-    foreach (var d2 in Enum.GetValues<NumPad>())
-    {
-        if (d1 is NumPad.Fail || d2 is NumPad.Fail) continue;
-
-        Console.WriteLine($"{d1} -> {d2}: {string.Join("", ShortestNumPadPath(d1, d2).Select(DPadToChar))}");
-    }
-}
-
-foreach (var d1 in Enum.GetValues<DPad>())
-{
-    foreach (var d2 in Enum.GetValues<DPad>())
-    {
-        if (d1 is DPad.Fail || d2 is DPad.Fail) continue;
-
-        Console.WriteLine($"{d1} -> {d2}: {string.Join("", ShortestDPadPath(d1, d2).Select(DPadToChar))}");
-    }
-}
-
 foreach (var code in File.ReadAllLines("example.txt"))
 {
-    var path1 = FindShortestSequence(code, 2);
+    if (code != "379A") continue;
+    var part1 = Part1(code);
 
     // verify
-    var state = Execute(code, 2, path1);
+    var state = Execute(code, 2, part1);
     if (code != state.LastRobotOutput)
         throw new InvalidOperationException($"Path does not produce expected output: {code} != {state.LastRobotOutput}");
 
-    Console.WriteLine($"{code}: {string.Join("", path1.Select(DPadToChar))}: {ParseCode(code)} x {path1.Count}");
-    part1Sum += ParseCode(code) * path1.Count;
+    Console.WriteLine($"{code}: {ParseCode(code)} x {part1.Count}");
+    Console.WriteLine(string.Join("", part1.Select(DPadToChar)));
+    part1Sum += ParseCode(code) * part1.Count;
 
-    var path2 = FindShortestSequence(code, 2);
+    var length1 = FindShortestSequenceLength(code, 2);
+
+    // verify
+    //if (part1.Count != length1)
+      //  throw new InvalidOperationException($"New length does not match: {part1.Count} != {length1}");
+
+    /*var path2 = FindShortestSequence(code, 2);
     state = Execute(code, 2, path2);
     if (code != state.LastRobotOutput)
         throw new InvalidOperationException($"Path does not produce expected output: {code} != {state.LastRobotOutput}");
 
-    Console.WriteLine($"{code}: {string.Join("", path2.Select(DPadToChar))}: {ParseCode(code)} x {path2.Count}");
-    part2Sum += ParseCode(code) * path2.Count;
+    Console.WriteLine($"{code}: {ParseCode(code)} x {path2.Count}");
+    part2Sum += ParseCode(code) * path2.Count;*/
 }
 
 Console.WriteLine($"Part 1: {part1Sum}");
 Console.WriteLine($"Part 2: {part2Sum}");
 
-static List<DPad> FindShortestSequence(string code, int numDPadRobots)
+/*var moves = "v<<A>>^AvA^Av<<A>>^AAv<A<A>>^AAvAA<^A>Av<A>^AA<A>Av<A<A>>^AAAvA<^A>A";
+var s = Execute("379A", 2, moves.Select(CharToDPad));
+Console.WriteLine(moves);
+Console.WriteLine(moves.Length);
+Console.WriteLine(s.LastRobotOutput);
+Console.WriteLine("----");
+
+moves = "<v<A>>^AvA^A<vA<AA>>^AAvA^<A>AAvA^A<vA>^AA<A>Av<<A>A>^AAAvA<^A>A";
+s = Execute("379A", 2, moves.Select(CharToDPad));
+Console.WriteLine(moves);
+Console.WriteLine(moves.Length);
+Console.WriteLine(s.LastRobotOutput);*/
+Test("v<<A>>^AvA^Av<<A>>^AAv<A<A>>^AAvAA<^A>Av<A>^AA<A>Av<A<A>>^AAAvA<^A>A");
+Test("<v<A>>^AvA^A<vA<AA>>^AAvA^<A>AAvA^A<vA>^AA<A>Av<<A>A>^AAAvA<^A>A");
+
+static void Test(string moves)
 {
-    var start = new State(numDPadRobots);
+    Console.WriteLine("---");
+    var s = Execute("379A", 2, moves.Select(CharToDPad));
+    Console.WriteLine(moves);
+    Console.WriteLine(moves.Length);
+    Console.WriteLine(s.LastRobotOutput);
+}
+
+static int FindShortestSequenceLength(string code, int numDPadRobots)
+{
+    var current = NumPad.A;
+    var robot1Path = new List<DPad>();
+    foreach (var c in code)
+    {
+        var next = CharToNumPad(c);
+        var robot1 = ShortestNumPadPath(current, next);
+        robot1Path.AddRange(robot1);
+        robot1Path.Add(DPad.A);
+        //Console.WriteLine($"{current} -> {next}: {string.Join("", robot1.Select(DPadToChar))}");
+
+        current = next;
+    }
+
+    Console.WriteLine($"robotn-1 path: {string.Join("", robot1Path.Select(DPadToChar))}");
+
+    var dCurrent = DPad.A;
+    var robot2Path = new List<DPad>();
+    foreach (var next in robot1Path)
+    {
+        var robot2 = ShortestDPadPath(dCurrent, next);
+        robot2Path.AddRange(robot2);
+        robot2Path.Add(DPad.A);
+        //Console.WriteLine($"{dCurrent} -> {next}: {string.Join("", robot2.Select(DPadToChar))}");
+        dCurrent = next;
+    }
+
+    Console.WriteLine($"robotn path: {string.Join("", robot2Path.Select(DPadToChar))}");
+
+    dCurrent = DPad.A;
+    var result = new List<DPad>();
+    foreach (var next in robot2Path)
+    {
+        var robot2 = ShortestDPadPath(dCurrent, next);
+        result.AddRange(robot2);
+        result.Add(DPad.A);
+        //Console.WriteLine($"{dCurrent} -> {next}: {string.Join("", robot2.Select(DPadToChar))}");
+        dCurrent = next;
+    }
+
+    Console.WriteLine($"robotn+1 path: {string.Join("", result.Select(DPadToChar))}");
+
+    return result.Count;
+}
+
+static List<DPad> Part1(string code)
+{
+    var start = new State(2);
     var openSet = new PriorityQueue<State, int>();
     openSet.Enqueue(start, 0);
     var cameFrom = new Dictionary<State, (State State, DPad Input)>();
@@ -228,6 +286,22 @@ static DPad CharToDPad(char c) => c switch
     _ => throw new InvalidOperationException("User error"),
 };
 
+static NumPad CharToNumPad(char c) => c switch
+{
+    '1' => NumPad.One,
+    '2' => NumPad.Two,
+    '3' => NumPad.Three,
+    '4' => NumPad.Four,
+    '5' => NumPad.Five,
+    '6' => NumPad.Six,
+    '7' => NumPad.Seven,
+    '8' => NumPad.Eight,
+    '9' => NumPad.Nine,
+    '0' => NumPad.Zero,
+    'A' => NumPad.A,
+    _ => throw new InvalidOperationException("User error"),
+};
+
 static int ParseCode(string code) => int.Parse(code[..^1]);
 
 static DPad[] ShortestNumPadPath(NumPad start, NumPad end)
@@ -235,10 +309,10 @@ static DPad[] ShortestNumPadPath(NumPad start, NumPad end)
     var (startR, startC) = GetPos(start);
     var (endR, endC) = GetPos(end);
     return Enumerable.Empty<DPad>()
-        .Concat(Enumerable.Range(0, Math.Clamp(startR - endR, 0, 3)).Select(_ => DPad.Up))
-        .Concat(Enumerable.Range(0, Math.Clamp(endC - startC, 0, 2)).Select(_ => DPad.Right))
-        .Concat(Enumerable.Range(0, Math.Clamp(startC - endC, 0, 2)).Select(_ => DPad.Left))
-        .Concat(Enumerable.Range(0, Math.Clamp(endR - startR, 0, 3)).Select(_ => DPad.Down))
+        .Concat(Enumerable.Repeat(DPad.Up, Math.Clamp(startR - endR, 0, 3)))
+        .Concat(Enumerable.Repeat(DPad.Right, Math.Clamp(endC - startC, 0, 2)))
+        .Concat(Enumerable.Repeat(DPad.Left, Math.Clamp(startC - endC, 0, 2)))
+        .Concat(Enumerable.Repeat(DPad.Down, Math.Clamp(endR - startR, 0, 3)))
         .ToArray();
 
     static (int R, int C) GetPos(NumPad n) => n switch
@@ -263,10 +337,10 @@ static DPad[] ShortestDPadPath(DPad start, DPad end)
     var (startR, startC) = GetPos(start);
     var (endR, endC) = GetPos(end);
     return Enumerable.Empty<DPad>()
-        .Concat(Enumerable.Range(0, Math.Clamp(endR - startR, 0, 1)).Select(_ => DPad.Down))
-        .Concat(Enumerable.Range(0, Math.Clamp(startC - endC, 0, 2)).Select(_ => DPad.Left))
-        .Concat(Enumerable.Range(0, Math.Clamp(endC - startC, 0, 2)).Select(_ => DPad.Right))
-        .Concat(Enumerable.Range(0, Math.Clamp(startR - endR, 0, 1)).Select(_ => DPad.Up))
+        .Concat(Enumerable.Repeat(DPad.Down, Math.Clamp(endR - startR, 0, 1)))
+        .Concat(Enumerable.Repeat(DPad.Left, Math.Clamp(startC - endC, 0, 2)))
+        .Concat(Enumerable.Repeat(DPad.Right, Math.Clamp(endC - startC, 0, 2)))
+        .Concat(Enumerable.Repeat(DPad.Up, Math.Clamp(startR - endR, 0, 1)))
         .ToArray();
 
     static (int R, int C) GetPos(DPad d) => d switch
@@ -286,7 +360,7 @@ enum NumPad { One, Two, Three, Four, Five, Six, Seven, Eight, Nine, Zero, A, Fai
 
 sealed record State(int numDPadRobots)
 {
-    public ImmutableArray<DPad> Robots { get; init; } = Enumerable.Range(0, numDPadRobots).Select(_ => DPad.A).ToImmutableArray();
+    public ImmutableArray<DPad> Robots { get; init; } = Enumerable.Repeat(DPad.A, numDPadRobots).ToImmutableArray();
     public NumPad LastRobot { get; init; } = NumPad.A;
     public string LastRobotOutput { get; init; } = string.Empty;
 
@@ -295,7 +369,7 @@ sealed record State(int numDPadRobots)
         if (Robots.Any(x => x is DPad.Fail) || LastRobot is NumPad.Fail)
             return false;
 
-        return targetCode.StartsWith(LastRobotOutput);
+        return targetCode == string.Empty || targetCode.StartsWith(LastRobotOutput);
     }
 
     public override int GetHashCode() => HashCode.Combine(LastRobot, LastRobotOutput, Robots.Length);
@@ -304,4 +378,122 @@ sealed record State(int numDPadRobots)
         && other.LastRobot == LastRobot
         && other.LastRobotOutput == LastRobotOutput
         && other.Robots.SequenceEqual(Robots);
+}
+
+record State2(int numDPadRobots)
+{
+    public ImmutableArray<DPadRobot> Robots { get; init; } = Enumerable.Repeat(new DPadRobot(), numDPadRobots).ToImmutableArray();
+    public NumPadRobot LastRobot { get; init; } = new NumPadRobot();
+
+    public State2 Step(DPad input) => input switch
+    {
+        DPad.Up or DPad.Left or DPad.Right or DPad.Down
+            => this with { Robots = Robots.SetItem(0, Robots[0]
+                with { Current = MoveDPad(Robots[0].Current, input) }) },
+        DPad.A => ActOnDPadRobot(1) with { Robots = Robots.SetItem(0, Robots[0]
+                with { Outputs = Robots[0].Outputs.Add(Robots[0].Current) }) },
+        _ => throw new InvalidOperationException("User error"),
+    };
+
+    private State2 ActOnDPadRobot(int index) => Robots[index - 1].Current switch
+    {
+        DPad.Up or DPad.Left or DPad.Right or DPad.Down
+            => this with
+            {
+                Robots = Robots.SetItem(index, Robots[index] with
+                {
+                    Current = MoveDPad(Robots[index].Current, Robots[index - 1].Current),
+                })
+            },
+        DPad.A when index < Robots.Length - 1 => ActOnDPadRobot(index + 1) with
+        {
+            Robots = Robots.SetItem(index, Robots[index] with
+            {
+                Outputs = Robots[index].Outputs.Add(Robots[index].Current),
+            }),
+        },
+        DPad.A => ActOnLastRobot(),
+        _ => throw new InvalidOperationException("User error"),
+    };
+
+    private State2 ActOnLastRobot() => Robots[^1].Current switch
+    {
+        DPad.Up or DPad.Left or DPad.Right or DPad.Down
+            => this with
+            {
+                LastRobot = LastRobot with
+                {
+                    Current = MoveNumPad(LastRobot.Current, Robots[^1].Current),
+                    Outputs = LastRobot.Outputs.Add(LastRobot.Current),
+                }
+            },
+        DPad.A => this with { LastRobot = LastRobot with { Outputs = LastRobot.Outputs.Add(LastRobot.Current) } },
+        _ => throw new InvalidOperationException("User error"),
+    };
+
+    static DPad MoveDPad(DPad start, DPad input) => (start, input) switch
+    {
+        (DPad.Up, DPad.Right) => DPad.A,
+        (DPad.Up, DPad.Down) => DPad.Down,
+        (DPad.A, DPad.Left) => DPad.Up,
+        (DPad.A, DPad.Down) => DPad.Right,
+        (DPad.Left, DPad.Right) => DPad.Down,
+        (DPad.Down, DPad.Left) => DPad.Left,
+        (DPad.Down, DPad.Up) => DPad.Up,
+        (DPad.Down, DPad.Right) => DPad.Right,
+        (DPad.Right, DPad.Left) => DPad.Down,
+        (DPad.Right, DPad.Up) => DPad.A,
+        _ => DPad.Fail
+    };
+
+    static NumPad MoveNumPad(NumPad start, DPad input) => (start, input) switch
+    {
+        (NumPad.Seven, DPad.Right) => NumPad.Eight,
+        (NumPad.Seven, DPad.Down) => NumPad.Four,
+        (NumPad.Eight, DPad.Left) => NumPad.Seven,
+        (NumPad.Eight, DPad.Right) => NumPad.Nine,
+        (NumPad.Eight, DPad.Down) => NumPad.Five,
+        (NumPad.Nine, DPad.Left) => NumPad.Eight,
+        (NumPad.Nine, DPad.Down) => NumPad.Six,
+
+        (NumPad.Four, DPad.Up) => NumPad.Seven,
+        (NumPad.Four, DPad.Right) => NumPad.Five,
+        (NumPad.Four, DPad.Down) => NumPad.One,
+        (NumPad.Five, DPad.Left) => NumPad.Four,
+        (NumPad.Five, DPad.Up) => NumPad.Eight,
+        (NumPad.Five, DPad.Right) => NumPad.Six,
+        (NumPad.Five, DPad.Down) => NumPad.Two,
+        (NumPad.Six, DPad.Up) => NumPad.Nine,
+        (NumPad.Six, DPad.Left) => NumPad.Five,
+        (NumPad.Six, DPad.Down) => NumPad.Three,
+
+        (NumPad.One, DPad.Up) => NumPad.Four,
+        (NumPad.One, DPad.Right) => NumPad.Two,
+        (NumPad.Two, DPad.Left) => NumPad.One,
+        (NumPad.Two, DPad.Right) => NumPad.Three,
+        (NumPad.Two, DPad.Down) => NumPad.Zero,
+        (NumPad.Two, DPad.Up) => NumPad.Five,
+        (NumPad.Three, DPad.Left) => NumPad.Two,
+        (NumPad.Three, DPad.Up) => NumPad.Six,
+        (NumPad.Three, DPad.Down) => NumPad.A,
+
+        (NumPad.Zero, DPad.Up) => NumPad.Two,
+        (NumPad.Zero, DPad.Right) => NumPad.A,
+        (NumPad.A, DPad.Left) => NumPad.Zero,
+        (NumPad.A, DPad.Up) => NumPad.Three,
+
+        _ => NumPad.Fail,
+    };
+}
+
+record DPadRobot
+{
+    public DPad Current { get; init; } = DPad.A;
+    public ImmutableList<DPad> Outputs { get; init; } = [];
+}
+
+record NumPadRobot
+{
+    public NumPad Current { get; init; } = NumPad.A;
+    public ImmutableList<NumPad> Outputs { get; init; } = [];
 }
